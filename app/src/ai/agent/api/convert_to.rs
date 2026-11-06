@@ -231,6 +231,7 @@ pub(super) fn convert_input(
                                     origin: attribution.origin,
                                     author: attribution.author,
                                     source_message: attribution.source_message,
+                                    input_uid: Default::default(),
                                 }
                             }),
                         },
@@ -1055,6 +1056,7 @@ impl From<MCPContext> for api::request::McpContext {
                     .filter_map(convert_mcp_tool)
                     .collect(),
                 servers: vec![], // Empty for old behavior
+                supports_github_turn_binding: false,
             }
         } else {
             // New behavior: group by server
@@ -1088,6 +1090,7 @@ impl From<MCPContext> for api::request::McpContext {
                 #[allow(deprecated)]
                 tools: vec![], // Empty - everything is grouped by server
                 servers,
+                supports_github_turn_binding: false,
             }
         }
     }

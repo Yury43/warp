@@ -119,6 +119,7 @@ fn tool_call_message(
         server_message_data: String::new(),
         citations: vec![],
         message: Some(api::message::Message::ToolCall(api::message::ToolCall {
+            github_turn: None,
             tool_call_id: tool_call_id.to_string(),
             tool: Some(tool),
         })),

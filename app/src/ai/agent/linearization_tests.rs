@@ -30,6 +30,7 @@ fn create_subagent_tool_call_message(id: &str, task_id: &str, subtask_id: &str) 
         server_message_data: "server_data".to_string(),
         citations: vec![],
         message: Some(api::message::Message::ToolCall(api::message::ToolCall {
+            github_turn: None,
             tool_call_id: format!("{id}_tool_call"),
             tool: Some(api::message::tool_call::Tool::Subagent(
                 api::message::tool_call::Subagent {

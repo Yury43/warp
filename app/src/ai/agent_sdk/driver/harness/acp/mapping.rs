@@ -535,6 +535,7 @@ impl AcpTurnMapper {
         );
         let action_id = Uuid::new_v4().to_string();
         let message = self.new_message(MessageKind::ToolCall(ToolCall {
+            github_turn: None,
             tool_call_id: action_id.clone(),
             tool: Some(projection.tool(&title)),
         }));
@@ -626,6 +627,7 @@ impl AcpTurnMapper {
                 task_id: self.task_id.clone(),
                 request_id: self.request_id.clone(),
                 message: Some(MessageKind::ToolCall(ToolCall {
+                    github_turn: None,
                     tool_call_id: state.action_id.clone(),
                     tool: Some(state.projection.tool(&state.title)),
                 })),

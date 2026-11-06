@@ -19,6 +19,7 @@ fn upload_artifact_tool_call_message(path: &str, description: &str) -> api::Mess
         server_message_data: String::new(),
         citations: vec![],
         message: Some(api::message::Message::ToolCall(api::message::ToolCall {
+            github_turn: None,
             tool_call_id: "tool-call-id".to_string(),
             tool: Some(api::message::tool_call::Tool::UploadFileArtifact(
                 api::UploadFileArtifact {
@@ -154,6 +155,7 @@ fn converts_run_agents_metadata_maps() {
     let child_metadata = HashMap::from([("stage".to_string(), String::new())]);
     let message = api::Message {
         message: Some(api::message::Message::ToolCall(api::message::ToolCall {
+            github_turn: None,
             tool_call_id: "run-agents".to_string(),
             tool: Some(api::message::tool_call::Tool::RunAgents(api::RunAgents {
                 metadata: metadata.clone(),
@@ -251,6 +253,7 @@ fn transfer_control_tool_call_converts_to_action_message() {
         server_message_data: String::new(),
         citations: vec![],
         message: Some(api::message::Message::ToolCall(api::message::ToolCall {
+            github_turn: None,
             tool_call_id: "tool_call".to_string(),
             tool: Some(
                 api::message::tool_call::Tool::TransferShellCommandControlToUser(

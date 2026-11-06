@@ -5358,6 +5358,7 @@ fn regular_tool_call_message(
         fetched_memories: vec![],
         message: Some(warp_multi_agent_api::message::Message::ToolCall(
             warp_multi_agent_api::message::ToolCall {
+                github_turn: None,
                 tool_call_id: tool_call_id.to_string(),
                 tool: Some(
                     warp_multi_agent_api::message::tool_call::Tool::RunShellCommand(
@@ -5420,6 +5421,7 @@ fn server_tool_call_message(
         fetched_memories: vec![],
         message: Some(warp_multi_agent_api::message::Message::ToolCall(
             warp_multi_agent_api::message::ToolCall {
+                github_turn: None,
                 tool_call_id: tool_call_id.to_string(),
                 tool: Some(warp_multi_agent_api::message::tool_call::Tool::Server(
                     warp_multi_agent_api::message::tool_call::Server {

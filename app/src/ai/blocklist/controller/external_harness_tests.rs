@@ -82,6 +82,7 @@ fn shell_tool_call(task_id: &str, request_id: &str, tool_call_id: &str) -> Messa
         task_id,
         request_id,
         MessageKind::ToolCall(ToolCall {
+            github_turn: None,
             tool_call_id: tool_call_id.to_owned(),
             tool: Some(Tool::RunShellCommand(RunShellCommand {
                 command: "ls".to_owned(),
@@ -763,6 +764,7 @@ fn a_tool_call_rewritten_by_a_message_update_is_stored_with_its_new_input() {
                 let task_id = root_task_id(ctx, id);
                 let mcp_call = |args: serde_json::Value| {
                     MessageKind::ToolCall(ToolCall {
+                        github_turn: None,
                         tool_call_id: "call-1".to_owned(),
                         tool: Some(Tool::CallMcpTool(CallMcpTool {
                             name: "send_message_to_thread".to_owned(),

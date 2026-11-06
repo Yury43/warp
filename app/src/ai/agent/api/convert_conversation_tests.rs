@@ -380,6 +380,7 @@ fn test_convert_tool_call_result_to_input_transfer_control_cancelled() {
     let task_id = crate::ai::agent::task::TaskId::new("task".to_string());
     let mut document_versions = HashMap::new();
     let original_tool_call = api::message::ToolCall {
+        github_turn: None,
         tool_call_id: "tool_call".to_string(),
         tool: Some(
             api::message::tool_call::Tool::TransferShellCommandControlToUser(
@@ -701,6 +702,7 @@ fn test_into_exchanges_with_tool_calls_and_cancellation() {
             server_message_data: "".to_string(),
             citations: vec![],
             message: Some(api::message::Message::ToolCall(api::message::ToolCall {
+                github_turn: None,
                 tool_call_id: "call_1".to_string(),
                 tool: Some(api::message::tool_call::Tool::RunShellCommand(
                     api::message::tool_call::RunShellCommand {
@@ -725,6 +727,7 @@ fn test_into_exchanges_with_tool_calls_and_cancellation() {
             server_message_data: "".to_string(),
             citations: vec![],
             message: Some(api::message::Message::ToolCall(api::message::ToolCall {
+                github_turn: None,
                 tool_call_id: "call_2".to_string(),
                 tool: Some(api::message::tool_call::Tool::RunShellCommand(
                     api::message::tool_call::RunShellCommand {
@@ -749,6 +752,7 @@ fn test_into_exchanges_with_tool_calls_and_cancellation() {
             server_message_data: "".to_string(),
             citations: vec![],
             message: Some(api::message::Message::ToolCall(api::message::ToolCall {
+                github_turn: None,
                 tool_call_id: "call_3".to_string(),
                 tool: Some(api::message::tool_call::Tool::RunShellCommand(
                     api::message::tool_call::RunShellCommand {
@@ -1023,6 +1027,7 @@ fn test_into_exchanges_with_code_diffs() {
             server_message_data: "".to_string(),
             citations: vec![],
             message: Some(api::message::Message::ToolCall(api::message::ToolCall {
+                github_turn: None,
                 tool_call_id: "diff_1".to_string(),
                 tool: Some(api::message::tool_call::Tool::ApplyFileDiffs(
                     api::message::tool_call::ApplyFileDiffs {
@@ -1095,6 +1100,7 @@ fn test_into_exchanges_with_code_diffs() {
             server_message_data: "".to_string(),
             citations: vec![],
             message: Some(api::message::Message::ToolCall(api::message::ToolCall {
+                github_turn: None,
                 tool_call_id: "diff_2".to_string(),
                 tool: Some(api::message::tool_call::Tool::ApplyFileDiffs(
                     api::message::tool_call::ApplyFileDiffs {
@@ -1427,6 +1433,7 @@ fn test_exchanges_grouped_by_request_id() {
             server_message_data: "".to_string(),
             citations: vec![],
             message: Some(api::message::Message::ToolCall(api::message::ToolCall {
+                github_turn: None,
                 tool_call_id: "39740c13-892c-4f0e-8aa9-6d305d81f174".to_string(),
                 tool: Some(api::message::tool_call::Tool::Server(
                     api::message::tool_call::Server {
@@ -1478,6 +1485,7 @@ fn test_exchanges_grouped_by_request_id() {
             server_message_data: "".to_string(),
             citations: vec![],
             message: Some(api::message::Message::ToolCall(api::message::ToolCall {
+                github_turn: None,
                 tool_call_id: "toolu_016dGTLFAPqvxW9yyFcF1WzT".to_string(),
                 tool: Some(api::message::tool_call::Tool::RunShellCommand(
                     api::message::tool_call::RunShellCommand {
@@ -1738,6 +1746,7 @@ fn test_multiple_create_documents_get_default_version() {
             server_message_data: "".to_string(),
             citations: vec![],
             message: Some(api::message::Message::ToolCall(api::message::ToolCall {
+                github_turn: None,
                 tool_call_id: "tc_create_a".to_string(),
                 tool: Some(api::message::tool_call::Tool::CreateDocuments(
                     api::message::tool_call::CreateDocuments {
@@ -1805,6 +1814,7 @@ fn test_multiple_create_documents_get_default_version() {
             server_message_data: "".to_string(),
             citations: vec![],
             message: Some(api::message::Message::ToolCall(api::message::ToolCall {
+                github_turn: None,
                 tool_call_id: "tc_create_b".to_string(),
                 tool: Some(api::message::tool_call::Tool::CreateDocuments(
                     api::message::tool_call::CreateDocuments {
@@ -1956,6 +1966,7 @@ fn test_create_then_edit_then_create_version_tracking() {
             server_message_data: "".to_string(),
             citations: vec![],
             message: Some(api::message::Message::ToolCall(api::message::ToolCall {
+                github_turn: None,
                 tool_call_id: "tc_create_a".to_string(),
                 tool: Some(api::message::tool_call::Tool::CreateDocuments(
                     api::message::tool_call::CreateDocuments {
@@ -2023,6 +2034,7 @@ fn test_create_then_edit_then_create_version_tracking() {
             server_message_data: "".to_string(),
             citations: vec![],
             message: Some(api::message::Message::ToolCall(api::message::ToolCall {
+                github_turn: None,
                 tool_call_id: "tc_edit_a".to_string(),
                 tool: Some(api::message::tool_call::Tool::EditDocuments(
                     api::message::tool_call::EditDocuments {
@@ -2089,6 +2101,7 @@ fn test_create_then_edit_then_create_version_tracking() {
             server_message_data: "".to_string(),
             citations: vec![],
             message: Some(api::message::Message::ToolCall(api::message::ToolCall {
+                github_turn: None,
                 tool_call_id: "tc_create_b".to_string(),
                 tool: Some(api::message::tool_call::Tool::CreateDocuments(
                     api::message::tool_call::CreateDocuments {
