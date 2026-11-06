@@ -262,6 +262,7 @@ fn ssh_hook_round_trips_through_serialization() {
             session_id: Some(3),
             remote_session_id: Some(4),
             external_control_master: true,
+            persistent_session: false,
         },
     };
     let json = serde_json::to_string(&hook).unwrap();

@@ -1,12 +1,57 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use futures::FutureExt as _;
 use warpui::elements::Empty;
 use warpui::platform::WindowStyle;
 use warpui::{App, AppContext, Element, Entity, ModelHandle, TypedActionView, View, ViewContext};
 
 use super::command_executor::testing::TestCommandExecutor;
-use super::{BootstrapSessionType, Session, SessionId, SessionInfo, Sessions, SessionsEvent};
+use super::{
+    BootstrapSessionType, ExecuteCommandOptions, ExecutorCommandEvent, InBandCommandExecutor,
+    Session, SessionId, SessionInfo, Sessions, SessionsEvent,
+};
+use crate::terminal::event::ExecutedExecutorCommandEvent;
+
+#[test]
+fn aborting_one_request_preserves_other_in_band_results() {
+    App::test((), |_app| async move {
+        let (commands_tx, commands_rx) = async_channel::unbounded();
+        let (cancel_tx, _cancel_rx) = async_channel::unbounded();
+        let executor = Arc::new(InBandCommandExecutor::new(commands_tx, cancel_tx));
+        let session = Session::new(SessionInfo::new_for_test(), executor.clone());
+        let mut history = Box::pin(session.execute_command(
+            "cat history",
+            None,
+            None,
+            ExecuteCommandOptions::default(),
+        ));
+        assert!(history.as_mut().now_or_never().is_none());
+        let ExecutorCommandEvent::ExecuteCommand { command, .. } = commands_rx.try_recv().unwrap()
+        else {
+            panic!("Expected the history request to start");
+        };
+        let mut obsolete = Box::pin(session.execute_command(
+            "ls old-prefix",
+            None,
+            None,
+            ExecuteCommandOptions::default(),
+        ));
+        assert!(obsolete.as_mut().now_or_never().is_none());
+        drop(obsolete);
+        session.cancel_commands_on_request_abort();
+        assert!(
+            history.as_mut().now_or_never().is_none(),
+            "Aborting a typing request must not cancel history loading"
+        );
+        executor.handle_executed_command_event(ExecutedExecutorCommandEvent {
+            command_id: command.command_id,
+            exit_code: 0,
+            output: b"cd work".to_vec(),
+        });
+        assert_eq!(history.await.unwrap().stdout, b"cd work");
+    });
+}
 
 struct TestView {
     events: Vec<SessionsEvent>,

@@ -227,7 +227,7 @@ impl Input {
                         }
                     },
                     move |_, _| {
-                        completion_session.cancel_active_commands();
+                        completion_session.cancel_commands_on_request_abort();
                     },
                 ));
             }

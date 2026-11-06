@@ -5,6 +5,8 @@
 # given command using the system default $PATH, which ensures the shells can locate
 # the corresponding binaries even if the user has a clobbered value of $PATH.
 if [ -z "$WARP_BOOTSTRAPPED" ]; then
+    # Child session clients need the parent token to register their remote shell hooks.
+    export WARP_SESSION_ID
     # Byte sequence used to signal the start of a DCS. ([0x1b, 0x50, 0x24] which
     # maps to <ESC>, P, $ in ASCII.)
     DCS_START="$(printf '\eP$')"

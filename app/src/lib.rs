@@ -53,6 +53,8 @@ mod notebooks;
 mod notification;
 mod palette;
 mod persistence;
+#[cfg(unix)]
+mod persistent_ssh;
 mod platform;
 mod prefix;
 #[cfg(target_os = "macos")]
@@ -823,6 +825,8 @@ pub fn run() -> Result<()> {
             warp_util::windows::attach_to_parent_console();
         }
         match command {
+            #[cfg(unix)]
+            warp_cli::Command::SshSession(args) => return persistent_ssh::run(args),
             warp_cli::Command::Worker(worker) => return run_worker_command(worker),
             warp_cli::Command::Completions { shell } => {
                 return warp_cli::completions::generate_to_stdout(*shell);

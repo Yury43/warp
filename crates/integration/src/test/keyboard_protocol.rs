@@ -63,6 +63,75 @@ fn assert_output_contains(
     }
 }
 
+pub fn test_tab_reaches_long_running_command() -> Builder {
+    new_builder()
+        .with_setup(setup_python_script!(
+            "read_keys.py",
+            "../../assets/read_keys.py"
+        ))
+        .with_step(wait_until_bootstrapped_single_pane_for_tab(0))
+        .with_step(
+            TestStep::new("Start raw terminal input reader")
+                .with_typed_characters(&["python3 ~/read_keys.py"])
+                .with_keystrokes(&["enter"])
+                .add_named_assertion(
+                    "Terminal reader is ready",
+                    assert_output_contains("Ready", "Terminal reader should be ready"),
+                ),
+        )
+        .with_step(
+            TestStep::new("Forward Tab to terminal input")
+                .with_keystrokes(&["tab"])
+                .add_named_assertion(
+                    "Tab arrives as the Bash completion control byte",
+                    assert_output_contains("Received byte: 0x09", "Tab should send byte 0x09"),
+                ),
+        )
+        .with_step(
+            new_step_with_default_assertions("Exit terminal reader").with_keystrokes(&["ctrl-c"]),
+        )
+}
+
+pub fn test_tab_completes_in_unintegrated_bash() -> Builder {
+    new_builder()
+        .with_setup(|utils| {
+            std::fs::write(
+                utils.test_dir().join("completion_unique_target"),
+                "NATIVE_TAB_COMPLETION_OK\n",
+            )
+            .expect("Failed to write completion fixture");
+        })
+        .with_step(wait_until_bootstrapped_single_pane_for_tab(0))
+        .with_step(
+            TestStep::new("Start Bash with native line editing")
+                .with_typed_characters(&[
+                    "env INPUTRC=/dev/null PS1=NATIVE_BASH_READY /bin/bash --noprofile --norc -i",
+                ])
+                .with_keystrokes(&["enter"])
+                .add_named_assertion(
+                    "Bash prompt is ready",
+                    assert_output_contains("NATIVE_BASH_READY", "Bash should show its prompt"),
+                ),
+        )
+        .with_step(
+            TestStep::new("Complete filename with Tab and read it")
+                .with_typed_characters(&["cat ~/completion_unique_"])
+                .with_keystrokes(&["tab", "enter"])
+                .add_named_assertion(
+                    "Bash completes the filename",
+                    assert_output_contains(
+                        "NATIVE_TAB_COMPLETION_OK",
+                        "Bash should read the file selected by Tab completion",
+                    ),
+                ),
+        )
+        .with_step(
+            new_step_with_default_assertions("Exit Bash")
+                .with_typed_characters(&["exit"])
+                .with_keystrokes(&["enter"]),
+        )
+}
+
 /// Test that without keyboard protocol enabled, Shift+Enter sends \n
 pub fn test_keyboard_protocol_disabled_shift_enter() -> Builder {
     new_builder()

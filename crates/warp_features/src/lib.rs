@@ -6,6 +6,8 @@ pub use overrides::{get_overrides, set_overrides};
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq, Debug, Sequence)]
 pub enum FeatureFlag {
+    /// Keeps remote PTYs alive independently of their SSH transport.
+    PersistentSshSessions,
     Changelog,
     CocoaSentry,
     CrashReporting,

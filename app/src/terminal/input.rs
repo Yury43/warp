@@ -10359,7 +10359,7 @@ impl Input {
                 Self::on_autosuggestion_result,
                 move |_, _| {
                     if let Some(session) = completion_session {
-                        session.cancel_active_commands();
+                        session.cancel_commands_on_request_abort();
                     }
                 },
             )
@@ -12663,10 +12663,13 @@ impl Input {
         let editor = self.editor.as_ref(ctx);
         let buffer_text = editor.buffer_text(ctx);
 
-        let is_command_grid_active = {
+        let (is_command_grid_active, is_bootstrapped) = {
             let model = self.model.lock();
-            !model.is_alt_screen_active()
-                && model.block_list().active_block().is_command_grid_active()
+            (
+                !model.is_alt_screen_active()
+                    && model.block_list().active_block().is_command_grid_active(),
+                model.block_list().is_bootstrapped(),
+            )
         };
 
         // CLI agent rich input in shell mode (! prefix) should allow completions
@@ -12680,7 +12683,7 @@ impl Input {
                 .is_some_and(|s| matches!(s.session_type(), SessionType::WarpifiedRemote { .. }));
 
         // If the cursor is in a valid completion position, go into CompletionSuggestions mode
-        if (is_command_grid_active || is_cli_agent_shell_mode) && self.can_query_history(ctx) {
+        if (is_command_grid_active || is_cli_agent_shell_mode) && is_bootstrapped {
             let matcher = MatchStrategy::Fuzzy;
 
             if let Some(completion_context) = self.completion_session_context(ctx) {
@@ -12833,7 +12836,7 @@ impl Input {
                         }
                     },
                     move |_, _| {
-                        completion_session.cancel_active_commands();
+                        completion_session.cancel_commands_on_request_abort();
                     },
                 )
                 .abort_handle();
@@ -12933,7 +12936,7 @@ impl Input {
                     )
                 },
                 move |_, _| {
-                    completion_session.cancel_active_commands();
+                    completion_session.cancel_commands_on_request_abort();
                 },
             )
             .abort_handle();
@@ -13011,7 +13014,7 @@ impl Input {
                     );
                 },
                 move |_, _| {
-                    completion_session.cancel_active_commands();
+                    completion_session.cancel_commands_on_request_abort();
                 },
             )
             .abort_handle();

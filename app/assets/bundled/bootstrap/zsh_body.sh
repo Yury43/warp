@@ -5,6 +5,8 @@
 # given command using the system default $PATH, which ensures the shells can locate
 # the corresponding binaries even if the user has a clobbered value of $PATH.
 if [[ -z $WARP_BOOTSTRAPPED ]]; then
+  # Child session clients need the parent token to register their remote shell hooks.
+  export WARP_SESSION_ID
   # Return PS2 to its original value.  We set this to an empty string in zsh.sh,
   # and want to reset it now that we've received the bootstrap script and started
   # to eval it.

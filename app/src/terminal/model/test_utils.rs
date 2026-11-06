@@ -371,6 +371,7 @@ impl TerminalModel {
         self.preexec(PreexecValue {
             command: std::str::from_utf8(input.as_bytes()).unwrap().to_owned(),
             session_id: None,
+            restore_command: false,
         });
     }
 

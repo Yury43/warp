@@ -20,7 +20,7 @@ use crate::terminal::line_editor_status::{LineEditorStatus, LineEditorStatusEven
 use crate::terminal::model::ansi::Handler;
 use crate::terminal::model::completions::ShellCompletion;
 use crate::terminal::model::session::{
-    ExecutorCommandEvent, InBandCommandCancelledEvent, SessionInfo, Sessions,
+    ExecutorCommandEvent, InBandCommandCancelledEvent, IsSSHWrapperSession, SessionInfo, Sessions,
 };
 use crate::terminal::model::{StartCommandOutcome, escape_sequences};
 use crate::terminal::model_events::{AnsiHandlerEvent, ModelEvent, ModelEventDispatcher};
@@ -327,6 +327,12 @@ impl<T: EventLoopSender> PtyController<T> {
         pending_session_info: &SessionInfo,
         ctx: &mut ModelContext<Self>,
     ) {
+        // Reattaching can happen while a foreground program owns the remote PTY.
+        if pending_session_info.is_ssh_wrapper_session == IsSSHWrapperSession::Persistent {
+            // The local SSH client stays running, but remote prompt readiness now controls writes.
+            self.is_user_command_executing = false;
+            return;
+        }
         let shell_type = pending_session_info.shell.shell_type();
 
         #[cfg(feature = "local_fs")]

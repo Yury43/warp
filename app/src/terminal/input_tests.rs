@@ -4044,6 +4044,53 @@ fn native_completions_after_empty_specs_bails_when_stale() {
 #[derive(Debug)]
 struct CancellationTrackingExecutor(Arc<AtomicUsize>);
 
+#[test]
+fn tab_completions_work_while_history_is_loading() {
+    let _native_completions_flag = FeatureFlag::NativeShellCompletions.override_enabled(false);
+    App::test((), |mut app| async move {
+        initialize_app(&mut app);
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::write(directory.path().join("completion_available.txt"), "").unwrap();
+        std::fs::write(directory.path().join("completion_another.txt"), "").unwrap();
+        let session_info = SessionInfo::new_for_test();
+        let session_id = session_info.session_id;
+        let terminal =
+            add_window_with_bootstrapped_terminal(&mut app, None, Some(session_info)).await;
+        simulate_directory_for_completion(
+            session_id,
+            &terminal,
+            &mut app,
+            directory.path().to_string_lossy(),
+        );
+        let input = terminal.read(&app, |terminal, _| terminal.input().clone());
+        let (history_tx, history_rx) = async_channel::bounded::<Vec<String>>(1);
+        input.update(&mut app, |input, ctx| {
+            let session = input.active_session(ctx).unwrap();
+            History::handle(ctx).update(ctx, |history, ctx| {
+                *history = History::new(vec![]);
+                history.init_session_with(
+                    session,
+                    async move { history_rx.recv().await.unwrap_or_default() },
+                    ctx,
+                );
+                assert!(!history.is_queryable(&session_id));
+            });
+            input.clear_buffer_and_reset_undo_stack(ctx);
+            input.user_insert("cat ./completion_", ctx);
+            input.input_tab(ctx);
+        });
+        assert_eventually!(
+            600 => input.read(&app, |input, _| {
+                input.input_suggestions.read(&app, |suggestions, _| {
+                    suggestions.items().iter().any(|item| item.text().ends_with("completion_available.txt"))
+                })
+            }),
+            "Tab must show filenames before history finishes loading"
+        );
+        history_tx.send(vec![]).await.unwrap();
+    });
+}
+
 #[async_trait::async_trait]
 impl CommandExecutor for CancellationTrackingExecutor {
     async fn execute_command(

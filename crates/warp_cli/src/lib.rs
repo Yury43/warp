@@ -39,6 +39,8 @@ pub mod runner;
 pub mod schedule;
 pub mod secret;
 pub mod share;
+#[cfg(unix)]
+pub mod ssh_session;
 pub mod task;
 // Each of these variables is injected under both its `OZ_` and its `WARP_` name, carrying the
 // identical value. Read sites still use the `OZ_` names.
@@ -317,6 +319,11 @@ impl Args {
     /// IMPORTANT: use this instead of [`CommandFactory::command`], since we customize the command at runtime.
     pub fn clap_command() -> clap::Command {
         let mut command = <Args as CommandFactory>::command();
+
+        #[cfg(unix)]
+        if !FeatureFlag::PersistentSshSessions.is_enabled() {
+            command = command.mut_subcommand("ssh-session", |command| command.hide(true));
+        }
 
         // Hide the environment subcommands and --environment flags from help text
         if !FeatureFlag::CloudEnvironments.is_enabled() {
@@ -661,6 +668,9 @@ impl CliCommand {
 /// A subcommand of the main Warp application. This includes all [`WorkerCommand`]s as well as app-specific debugging tools.
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
+    /// Attach to a persistent remote shell without a terminal multiplexer.
+    #[cfg(unix)]
+    SshSession(ssh_session::SshSessionArgs),
     #[clap(flatten)]
     Worker(WorkerCommand),
 
@@ -711,6 +721,8 @@ impl Command {
     /// Whether or not the Command should print to stdout.
     pub fn prints_to_stdout(&self) -> bool {
         match self {
+            #[cfg(unix)]
+            Command::SshSession(_) => true,
             Command::Worker(_) => false,
             Command::CommandLine(_) | Command::DumpDebugInfo => true,
             Command::Completions { .. } => true,

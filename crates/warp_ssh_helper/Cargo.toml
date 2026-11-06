@@ -1,0 +1,17 @@
+[package]
+name = "warp_ssh_helper"
+version = "0.1.0"
+edition = "2024"
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+anyhow.workspace = true
+libc.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

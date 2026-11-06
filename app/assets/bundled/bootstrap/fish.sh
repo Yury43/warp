@@ -1,6 +1,8 @@
 # Note that WARP_SESSION_ID is expected to have been set when executing commands to
 # emit the InitShell payload, which includes the session ID.
 begin
+# Child session clients need the parent token to register their remote shell hooks.
+set -gx WARP_SESSION_ID $WARP_SESSION_ID
 # We wrap ourselves in a begin block because these are effectively injected
 # keystrokes, and we want to execute this whole script as a single command.
 # Of course we are fish script, not POSIX shell script.

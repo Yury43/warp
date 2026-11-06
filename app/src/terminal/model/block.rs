@@ -2994,6 +2994,9 @@ impl Block {
         record_trace_event!("command_execution:block:prexec");
 
         self.ensure_started_for_preexec();
+        if data.restore_command && self.command_to_string().is_empty() {
+            self.header_grid.init_command(&data.command);
+        }
         self.header_grid.preexec(data.clone());
 
         let is_for_in_band_command = command_executor::is_in_band_command(data.command.as_str());

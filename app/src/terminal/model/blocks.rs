@@ -3238,6 +3238,7 @@ impl BlockList {
             self.preexec(PreexecValue {
                 command,
                 session_id: None,
+                restore_command: false,
             });
         }
 

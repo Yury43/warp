@@ -23,6 +23,8 @@ fn enabled_features() -> HashSet<FeatureFlag> {
     }
 
     flags.extend([
+        #[cfg(feature = "persistent_ssh_sessions")]
+        FeatureFlag::PersistentSshSessions,
         #[cfg(feature = "autoupdate")]
         FeatureFlag::Autoupdate,
         #[cfg(feature = "changelog")]

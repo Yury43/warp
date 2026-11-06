@@ -79,6 +79,7 @@ fn rejected_and_coalesced_starts_do_not_mutate_controller_or_write_bytes() {
         model.lock().preexec(PreexecValue {
             command: "running".to_owned(),
             session_id: None,
+            restore_command: false,
         });
         let rejected = controller.update(&mut app, |controller, ctx| {
             controller.write_command(
@@ -213,6 +214,7 @@ fn rejected_queued_in_band_start_is_cancelled_without_writing_bytes() {
         model.lock().preexec(PreexecValue {
             command: "running".to_owned(),
             session_id: None,
+            restore_command: false,
         });
 
         let (model_events_tx, model_events_rx) = async_channel::unbounded();

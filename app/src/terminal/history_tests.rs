@@ -8,6 +8,7 @@ use futures::future::join_all;
 use futures_lite::StreamExt;
 use itertools::Itertools;
 use warp_core::command::ExitCode;
+use warp_util::on_cancel::OnCancelFutureExt;
 use warpui::{App, ModelHandle};
 
 use super::{HistoryEntry, HistoryEvent, PersistedCommand, ShellHost};
@@ -18,7 +19,9 @@ use crate::terminal::model::block::{
 };
 use crate::terminal::model::bootstrap::BootstrapStage;
 use crate::terminal::model::session::command_executor::testing::TestCommandExecutor;
-use crate::terminal::model::session::{BootstrapSessionType, Session, SessionId, SessionInfo};
+use crate::terminal::model::session::{
+    BootstrapSessionType, InBandCommandExecutor, Session, SessionId, SessionInfo,
+};
 use crate::terminal::model::test_utils::TestBlockBuilder;
 use crate::terminal::shell::ShellType;
 use crate::test_util::{Stub, VirtualFS};
@@ -1017,6 +1020,55 @@ fn is_appendable_vs_is_queryable() {
         history_handle.read(&app, |history, _| {
             assert!(history.is_appendable(&session_id));
             assert!(history.is_queryable(&session_id));
+        });
+    });
+}
+
+#[test]
+fn reattached_shell_retries_unfinished_history_without_losing_commands() {
+    App::test((), |mut app| async move {
+        let mut history_handle = app.add_model(|_| History::new(vec![]));
+        let (commands_tx, _commands_rx) = async_channel::unbounded();
+        let (cancel_tx, _cancel_rx) = async_channel::unbounded();
+        let executor = Arc::new(InBandCommandExecutor::new(commands_tx, cancel_tx));
+        let first = Arc::new(Session::new(
+            SessionInfo::new_for_test().with_id(1),
+            executor.clone(),
+        ));
+        let second = Arc::new(Session::new(
+            SessionInfo::new_for_test().with_id(2),
+            executor,
+        ));
+        let (_old_tx, old_rx) = async_channel::bounded::<Vec<String>>(1);
+        let (cancelled_tx, cancelled_rx) = async_channel::bounded(1);
+        history_handle.update(&mut app, |history, ctx| {
+            history.init_session_with(
+                first,
+                async move { old_rx.recv().await.unwrap() }.on_cancel(move || {
+                    cancelled_tx.try_send(()).unwrap();
+                }),
+                ctx,
+            );
+            history.append_commands(
+                1.into(),
+                vec![HistoryEntry::with_session_id(1.into(), "echo kept")],
+            );
+            history.init_session_with(second, async { vec!["cd remote".to_string()] }, ctx);
+        });
+        cancelled_rx.recv().await.unwrap();
+        History::initialized_sessions(&mut history_handle, &mut app, vec![1.into(), 2.into()])
+            .await;
+        history_handle.read(&app, |history, _| {
+            assert!(history.is_queryable(&1.into()));
+            assert!(history.is_queryable(&2.into()));
+            let commands = history.commands(2.into()).unwrap();
+            assert_eq!(
+                commands
+                    .iter()
+                    .map(|entry| entry.command.as_str())
+                    .collect_vec(),
+                vec!["cd remote", "echo kept"]
+            );
         });
     });
 }

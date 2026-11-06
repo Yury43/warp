@@ -569,9 +569,8 @@ impl From<&SessionType> for command_corrections::SessionType {
 
 /// Whether a session was established by Warp's in-band SSH wrapper — the shell function our
 /// bootstrap injects that intercepts `ssh`, sets up a ControlMaster connection, and bootstraps
-/// the remote shell. This applies to all SSH warpification today: the remote-server SSH
-/// extension also runs on top of a wrapper session (reusing the ControlMaster socket for its
-/// proxy and for the `RemoteCommandExecutor` fallback).
+/// the remote shell. The remote-server SSH extension also runs on top of a wrapper session,
+/// whereas persistent sessions use a supervisor and in-band generators.
 ///
 /// `No` covers local sessions, subshells, and remote sessions warpified *without* the wrapper
 /// (e.g. via the auto-warpify RC snippet inside an unwrapped `ssh` session), which carry no
@@ -588,6 +587,8 @@ pub enum IsSSHWrapperSession {
         /// master on session exit.
         external_control_master: bool,
     },
+    /// A supervisor bootstraps the shell and preserves its PTY across SSH connections.
+    Persistent,
     No,
 }
 
@@ -667,6 +668,7 @@ impl SessionInfo {
         active_block_session_id: Option<SessionId>,
     ) -> Self {
         let is_ssh_wrapper_session = match ssh_wrapper_session {
+            Some(ssh_value) if ssh_value.persistent_session => IsSSHWrapperSession::Persistent,
             Some(ssh_value) => IsSSHWrapperSession::Yes {
                 socket_path: ssh_value.socket_path,
                 external_control_master: ssh_value.external_control_master,
@@ -682,7 +684,7 @@ impl SessionInfo {
         // to determine if this is a local or remote session.
         let session_type = Self::determine_session_type(
             &init_shell_value,
-            matches!(&is_ssh_wrapper_session, IsSSHWrapperSession::Yes { .. }),
+            is_ssh_wrapper_session != IsSSHWrapperSession::No,
         );
 
         let spawning_session_id = if matches!(session_type, BootstrapSessionType::WarpifiedRemote)
@@ -1623,6 +1625,15 @@ impl Session {
 
     pub fn cancel_active_commands(&self) {
         self.command_executor.read().cancel_active_commands();
+    }
+
+    /// Cancels an aborted UI request without clearing unrelated in-band commands.
+    pub fn cancel_commands_on_request_abort(&self) {
+        let executor = self.command_executor.read();
+        // In-band futures cancel their own command on drop; clearing the queue loses other requests.
+        if !executor.as_any().is::<InBandCommandExecutor>() {
+            executor.cancel_active_commands();
+        }
     }
 
     pub async fn git_branches_for_command_corrections(&self, working_dir: &str) -> Vec<String> {

@@ -16091,6 +16091,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "warp_ssh_helper"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "libc",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+]
+
+[[package]]
 name = "warp_terminal"
 version = "0.0.0"
 dependencies = [

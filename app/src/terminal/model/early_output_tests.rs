@@ -124,6 +124,7 @@ fn test_queued_typeahead_input_matching() {
     block_list.preexec(ansi::PreexecValue {
         command: "first".into(),
         session_id: None,
+        restore_command: false,
     });
     assert_eq!(block_list.active_block().command_to_string(), "first");
     block_list.command_finished(Default::default());
@@ -168,6 +169,7 @@ fn test_queued_typeahead_shell_reported() {
     block_list.preexec(ansi::PreexecValue {
         command: "first".into(),
         session_id: None,
+        restore_command: false,
     });
     assert_eq!(block_list.active_block().command_to_string(), "first");
     assert!(block_list.background_block_mut().is_none());

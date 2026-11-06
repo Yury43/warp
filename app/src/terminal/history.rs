@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Local, TimeZone as _};
 use futures::Future;
+use futures::future::{AbortHandle, Abortable};
 use serde::{Deserialize, Serialize};
 use warp_core::command::ExitCode;
 use warp_errors::report_error;
@@ -148,6 +149,7 @@ enum ReadHistoryFileState {
         /// Session IDs for sessions that are bootstrapped and awaiting a loaded histfile for the
         /// corresponding shell host.
         session_ids: HashSet<SessionId>,
+        read_abort_handle: AbortHandle,
     },
     Done,
 }
@@ -529,47 +531,15 @@ impl History {
         self.session_id_to_shell_host
             .insert(session_id, host.clone());
 
+        let (read_abort_handle, abort_registration) = AbortHandle::new_pair();
         match self.read_history_file_state.get_mut(&host) {
             None => {
-                let mut session_ids = HashSet::new();
-                session_ids.insert(session_id);
                 self.read_history_file_state.insert(
                     host.clone(),
                     ReadHistoryFileState::InProgress {
                         session_commands_to_append: vec![],
-                        session_ids,
-                    },
-                );
-                let host_clone = host.clone();
-                ctx.spawn(
-                    read_history_file_future,
-                    move |me, history_file_commands, ctx| {
-                        // `session_commands_to_append` are commands executed by the user while the
-                        // history file was being loaded.
-                        let (session_commands_to_append, session_ids) = match me
-                            .read_history_file_state
-                            .insert(host_clone, ReadHistoryFileState::Done)
-                        {
-                            Some(ReadHistoryFileState::InProgress {
-                                session_commands_to_append,
-                                session_ids,
-                            }) => (Some(session_commands_to_append), session_ids),
-                            _ => {
-                                // This branch should be unreachable, but don't panic!
-                                log::warn!("Marking ReadHistoryFileState::Done for session when \
-                                           its previous state was not ReadHistoryFileState::InProgress.");
-                                let mut session_ids = HashSet::new();
-                                session_ids.insert(session_id);
-                                (None, session_ids)
-                            }
-                        };
-                        me.load_history_file_commands(
-                            history_file_commands,
-                            session_commands_to_append,
-                            session_ids,
-                            host,
-                            ctx,
-                        );
+                        session_ids: HashSet::from([session_id]),
+                        read_abort_handle: read_abort_handle.clone(),
                     },
                 );
             }
@@ -587,19 +557,58 @@ impl History {
                     .unwrap_or(0);
                 let session_start_index = history_file_commands.len() + session_commands_length;
 
-                let mut session_ids = HashSet::new();
-                session_ids.insert(session_id);
                 self.initialize_session_start_and_skip_indices(
-                    session_ids,
+                    HashSet::from([session_id]),
                     host,
                     session_start_index,
                     ctx,
-                )
+                );
+                return;
             }
-            Some(ReadHistoryFileState::InProgress { session_ids, .. }) => {
+            Some(ReadHistoryFileState::InProgress {
+                session_ids,
+                read_abort_handle: previous_read,
+                ..
+            }) => {
                 session_ids.insert(session_id);
+                if !session.is_using_in_band_command_execution() {
+                    return;
+                }
+                // The previous read may belong to a detached shell whose replies can no longer arrive.
+                previous_read.abort();
+                *previous_read = read_abort_handle.clone();
             }
         }
+
+        ctx.spawn(
+            Abortable::new(read_history_file_future, abort_registration),
+            move |me, result, ctx| {
+                // A completed read can already be queued on the UI thread when it is superseded.
+                if read_abort_handle.is_aborted() {
+                    return;
+                }
+                let Ok(history_file_commands) = result else {
+                    return;
+                };
+                let Some(ReadHistoryFileState::InProgress {
+                    session_commands_to_append,
+                    session_ids,
+                    ..
+                }) = me
+                    .read_history_file_state
+                    .insert(host.clone(), ReadHistoryFileState::Done)
+                else {
+                    return;
+                };
+                me.load_history_file_commands(
+                    history_file_commands,
+                    Some(session_commands_to_append),
+                    session_ids,
+                    host,
+                    ctx,
+                );
+            },
+        );
     }
 
     /// Parses the given `history_file_commands` into `HistoryEntry`'s and sets the

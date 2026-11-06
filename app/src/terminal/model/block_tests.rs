@@ -751,6 +751,7 @@ pub fn test_block_emits_block_completed_event_for_in_band_command() {
     block.preexec(PreexecValue {
         command: "warp_run_generator_command 1234 foo".to_owned(),
         session_id: None,
+        restore_command: false,
     });
     block.finish(0);
 
@@ -761,6 +762,30 @@ pub fn test_block_emits_block_completed_event_for_in_band_command() {
             _ => false,
         }));
     assert!(block_completed_event.is_some());
+}
+
+#[test]
+fn resumed_command_restores_an_empty_header() {
+    let mut block = TestBlockBuilder::new().build();
+    block.preexec(PreexecValue {
+        command: "sleep 600".into(),
+        restore_command: true,
+        ..Default::default()
+    });
+    assert_eq!(block.command_to_string(), "sleep 600");
+    assert_eq!(block.state(), BlockState::Executing);
+}
+
+#[test]
+fn resumed_command_does_not_replace_an_existing_header() {
+    let mut block = TestBlockBuilder::new().build();
+    block.init_command("sleep 600 && echo done");
+    block.preexec(PreexecValue {
+        command: "sleep 600".into(),
+        restore_command: true,
+        ..Default::default()
+    });
+    assert_eq!(block.command_to_string(), "sleep 600 && echo done");
 }
 
 /// Tests the multiline lprompt and multiline command case for selecting text across grids.

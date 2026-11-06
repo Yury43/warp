@@ -32,6 +32,10 @@ fn main() -> Result<()> {
 
     add_features(&target_family, &target_os);
 
+    if env::var_os("CARGO_FEATURE_PERSISTENT_SSH_SESSIONS").is_some() && target_family == "unix" {
+        bundle_ssh_helpers()?;
+    }
+
     if target_os == "macos" && target_family != "wasm" {
         println!("cargo:rustc-link-lib=framework=MetalKit");
         println!("cargo:rustc-link-lib=framework=UserNotifications");
@@ -146,6 +150,28 @@ fn main() -> Result<()> {
 
     generate_channel_config_if_needed(&target_family, &target_os);
 
+    Ok(())
+}
+
+fn bundle_ssh_helpers() -> Result<()> {
+    println!("cargo:rerun-if-env-changed=WARP_SSH_HELPER_DIR");
+    let directory = env::var_os("WARP_SSH_HELPER_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap())
+                .join("../target/persistent-ssh-helpers")
+        });
+    let output = PathBuf::from(env::var("OUT_DIR")?);
+    for architecture in ["x86_64", "aarch64"] {
+        let source = directory.join(format!("warp-ssh-helper-{architecture}"));
+        println!("cargo:rerun-if-changed={}", source.display());
+        anyhow::ensure!(
+            source.is_file(),
+            "Missing native SSH helper {}. Run script/build-ssh-helpers first.",
+            source.display()
+        );
+        fs::copy(source, output.join(format!("ssh-helper-{architecture}")))?;
+    }
     Ok(())
 }
 

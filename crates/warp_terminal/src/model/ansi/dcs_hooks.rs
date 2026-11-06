@@ -412,6 +412,7 @@ impl DProtoHook {
                     value.command = v;
                 }
                 "session_id" => value.session_id = v.parse::<u64>().ok(),
+                "restore_command" => value.restore_command = v.parse::<bool>().unwrap_or(false),
                 _ => {
                     log::warn!("Tried to add unknown field {key} to Preexec hook");
                 }
@@ -429,6 +430,9 @@ impl DProtoHook {
                 "remote_session_id" => value.remote_session_id = v.parse::<u64>().ok(),
                 "external_control_master" => {
                     value.external_control_master = v.parse::<bool>().unwrap_or(false)
+                }
+                "persistent_session" => {
+                    value.persistent_session = v.parse::<bool>().unwrap_or(false)
                 }
                 _ => {
                     log::warn!("Tried to add unknown field {key} to SSH hook");
@@ -698,6 +702,9 @@ pub struct PreexecValue {
     pub command: String,
     #[serde(default)]
     pub session_id: HookSessionId,
+    /// Populate the command header when attaching to an already-running command.
+    #[serde(default)]
+    pub restore_command: bool,
 }
 
 /// Received from the pty after the shell has finished executing Warp's
@@ -939,6 +946,9 @@ pub struct SSHValue {
     /// `false` for hooks emitted by older bootstrap scripts.
     #[serde(default)]
     pub external_control_master: bool,
+    /// The remote supervisor owns bootstrap and carries generators over its durable PTY.
+    #[serde(default)]
+    pub persistent_session: bool,
 }
 
 /// Received from the pty after the shell session has been initialized, marking

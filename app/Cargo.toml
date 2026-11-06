@@ -462,6 +462,7 @@ embed-resource = "3.0"
 
 # Note that we support channel-specific enables for these features
 [features]
+persistent_ssh_sessions = []
 tui = ["warp_terminal/tui", "warpui_core/tui"]
 ai_resume_button = []
 autoupdate = []

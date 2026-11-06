@@ -22,6 +22,7 @@ mod notebooks;
 mod orchestration_navigation;
 mod osc8_hyperlinks;
 mod pane_restoration;
+mod persistent_ssh;
 #[cfg(target_os = "macos")]
 mod preview_config_migration;
 mod remote_server;
@@ -75,6 +76,7 @@ pub use pane_restoration::*;
 use parking_lot::Mutex;
 use pathfinder_geometry::rect::RectF;
 use pathfinder_geometry::vector::Vector2F;
+pub use persistent_ssh::*;
 #[cfg(target_os = "macos")]
 pub use preview_config_migration::*;
 pub use remote_server::*;

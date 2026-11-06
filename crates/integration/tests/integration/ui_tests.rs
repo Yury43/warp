@@ -371,6 +371,12 @@ integration_tests! {
     test_restored_ai_document_populates_code_block_after_first_layout,
 
     // Keyboard protocol tests
+    test_tab_reaches_long_running_command,
+    test_tab_completes_in_unintegrated_bash,
+    test_persistent_shell_uses_warp_completions,
+    test_persistent_shell_uses_native_completions,
+    test_persistent_shell_imports_remote_history,
+    test_persistent_shell_reattaches_to_running_command,
     test_keyboard_protocol_disabled_shift_enter,
     test_keyboard_protocol_enabled_shift_enter,
     test_keyboard_protocol_enabled_shifted_symbol_uses_unshifted_keycode,

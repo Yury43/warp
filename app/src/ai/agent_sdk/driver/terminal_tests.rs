@@ -280,6 +280,7 @@ fn block_plaintext_exposes_continuation_prompt_until_preexec() {
             model.preexec(PreexecValue {
                 command: "echo \"unterminated\"".to_owned(),
                 session_id: None,
+                restore_command: false,
             });
             model.process_bytes("executed");
         });

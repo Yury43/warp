@@ -2204,6 +2204,7 @@ pub fn test_emits_after_block_completed_event() {
     block_list.preexec(PreexecValue {
         command: "warp_run_generator_command 1234 foo".to_owned(),
         session_id: None,
+        restore_command: false,
     });
     command_finished_and_precmd(&mut block_list);
 
@@ -2211,6 +2212,7 @@ pub fn test_emits_after_block_completed_event() {
     block_list.preexec(PreexecValue {
         command: "some user command".to_owned(),
         session_id: None,
+        restore_command: false,
     });
     command_finished_and_precmd(&mut block_list);
 
@@ -2282,6 +2284,7 @@ fn test_background_blocks_finished() {
     block_list.preexec(PreexecValue {
         command: "warp_run_generator_command abc".to_owned(),
         session_id: None,
+        restore_command: false,
     });
     command_finished_and_precmd(&mut block_list);
 
