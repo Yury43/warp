@@ -1,6 +1,7 @@
 // We don't resolve managed MCPs from agent run CLI flows on WASM, so this code is unused there.
 #![cfg_attr(target_family = "wasm", expect(dead_code))]
 
+use ai::agent::action::GitHubTurnReference;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use cynic::MutationBuilder;
@@ -9,7 +10,7 @@ use mockall::automock;
 use warp_graphql::mutations::create_managed_mcp_client_config::{
     CreateManagedMcpClientConfig, CreateManagedMcpClientConfigInput,
     CreateManagedMcpClientConfigOutput, CreateManagedMcpClientConfigResult,
-    CreateManagedMcpClientConfigVariables,
+    CreateManagedMcpClientConfigVariables, GitHubTurnReferenceInput,
 };
 
 use super::ServerApi;
@@ -25,6 +26,21 @@ pub trait ManagedMcpClient: 'static + Send + Sync {
         &self,
         uid: String,
     ) -> Result<CreateManagedMcpClientConfigOutput>;
+
+    async fn create_github_mcp_client_config(
+        &self,
+        github_turn: GitHubTurnReference,
+    ) -> Result<CreateManagedMcpClientConfigOutput>;
+}
+
+pub(crate) fn github_turn_input(
+    reference: GitHubTurnReference,
+) -> Result<GitHubTurnReferenceInput> {
+    Ok(GitHubTurnReferenceInput {
+        run_id: reference.run_id.into(),
+        execution_id: reference.execution_id.try_into()?,
+        input_uid: reference.input_uid.into(),
+    })
 }
 
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
@@ -34,9 +50,28 @@ impl ManagedMcpClient for ServerApi {
         &self,
         uid: String,
     ) -> Result<CreateManagedMcpClientConfigOutput> {
+        self.managed_mcp_client_config(uid, None).await
+    }
+
+    async fn create_github_mcp_client_config(
+        &self,
+        github_turn: GitHubTurnReference,
+    ) -> Result<CreateManagedMcpClientConfigOutput> {
+        self.managed_mcp_client_config("github".to_string(), Some(github_turn_input(github_turn)?))
+            .await
+    }
+}
+
+impl ServerApi {
+    async fn managed_mcp_client_config(
+        &self,
+        uid: String,
+        github_turn: Option<GitHubTurnReferenceInput>,
+    ) -> Result<CreateManagedMcpClientConfigOutput> {
         let variables = CreateManagedMcpClientConfigVariables {
             input: CreateManagedMcpClientConfigInput {
                 uid: cynic::Id::new(uid),
+                github_turn,
             },
             request_context: get_request_context(),
         };

@@ -90,6 +90,8 @@ fn mcp_tool_action(tool: &str) -> AIAgentAction {
         id: AIAgentActionId::from("action-1".to_owned()),
         task_id: TaskId::new("task-1".to_owned()),
         action: AIAgentActionType::CallMCPTool {
+            is_github: false,
+            github_turn: None,
             server_id: None,
             name: tool.to_owned(),
             input: serde_json::Value::Null,

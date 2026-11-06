@@ -265,6 +265,10 @@ impl TryFrom<api::message::tool_call::CallMcpTool> for AIAgentActionType {
             server_id,
             name: value.name,
             input,
+            is_github: value
+                .server_identity
+                .is_some_and(|identity| identity.integration == api::McpIntegration::Github as i32),
+            github_turn: None,
         })
     }
 }

@@ -27,6 +27,15 @@ crate::client::define_operation! {
 #[derive(cynic::InputObject, Debug)]
 pub struct CreateManagedMcpClientConfigInput {
     pub uid: cynic::Id,
+    #[cynic(skip_serializing_if = "Option::is_none")]
+    pub github_turn: Option<GitHubTurnReferenceInput>,
+}
+
+#[derive(cynic::InputObject, Debug)]
+pub struct GitHubTurnReferenceInput {
+    pub run_id: cynic::Id,
+    pub execution_id: i32,
+    pub input_uid: cynic::Id,
 }
 
 #[derive(cynic::QueryFragment, Debug)]

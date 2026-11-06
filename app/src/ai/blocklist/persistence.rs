@@ -4,6 +4,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use ai::agent::action::GitHubTurnReference;
 use anyhow::anyhow;
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -276,6 +277,10 @@ pub(crate) enum PersistedAIAgentActionType {
         server_id: Option<Uuid>,
         name: String,
         input: serde_json::Value,
+        #[serde(default)]
+        is_github: bool,
+        #[serde(default)]
+        github_turn: Option<GitHubTurnReference>,
     },
     SuggestNewConversation {
         message_id: String,
@@ -397,10 +402,14 @@ impl From<&AIAgentActionType> for PersistedAIAgentActionType {
                 server_id,
                 name,
                 input,
+                is_github,
+                github_turn,
             } => Self::CallMCPTool {
                 server_id: *server_id,
                 name: name.clone(),
                 input: input.clone(),
+                is_github: *is_github,
+                github_turn: github_turn.clone(),
             },
             AIAgentActionType::ReadMCPResource {
                 server_id,
@@ -528,10 +537,14 @@ impl TryFrom<PersistedAIAgentActionType> for AIAgentActionType {
                 server_id,
                 name,
                 input,
+                is_github,
+                github_turn,
             } => Ok(Self::CallMCPTool {
                 server_id,
                 name,
                 input,
+                is_github,
+                github_turn,
             }),
             PersistedAIAgentActionType::ReadMCPResource {
                 server_id,

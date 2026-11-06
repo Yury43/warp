@@ -259,6 +259,7 @@ pub(super) async fn prepare_local_harness_child_launch(
             prompt.clone(),
             None,
             parent_run_id.clone(),
+            None,
             local_child_task_config(harness, agent_name),
             metadata,
             team_scope,

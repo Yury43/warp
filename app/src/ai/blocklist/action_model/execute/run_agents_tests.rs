@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use ai::agent::action::{RunAgentsAgentRunConfig, RunAgentsExecutionMode, RunAgentsRequest};
+use ai::agent::action::{
+    GitHubTurnReference, RunAgentsAgentRunConfig, RunAgentsExecutionMode, RunAgentsRequest,
+};
 use ai::agent::orchestration_config::{
     OrchestrationConfig, OrchestrationConfigStatus, OrchestrationExecutionMode,
 };
@@ -48,6 +50,27 @@ struct RunAgentsTestState {
 
 #[derive(Default)]
 struct CapturedStartAgentRequests(Vec<StartAgentRequest>);
+
+#[test]
+fn github_binding_rejects_unsupported_child_harnesses() {
+    for harness in ["claude", "codex", "pi"] {
+        let AIAgentActionType::RunAgents(mut request) = remote_run_agents_action(harness).action
+        else {
+            panic!("expected run_agents");
+        };
+        request.github_turn = Some(GitHubTurnReference {
+            run_id: "captured-run".into(),
+            execution_id: 2,
+            input_uid: "captured-input".into(),
+        });
+        assert_eq!(
+            validate_request(&request).unwrap_err(),
+            "GitHub turn bindings require the Oz harness."
+        );
+        request.harness_type = "oz".into();
+        assert!(validate_request(&request).is_ok());
+    }
+}
 
 impl Entity for CapturedStartAgentRequests {
     type Event = ();
@@ -367,6 +390,7 @@ fn remote_run_agents_action(harness_type: &str) -> AIAgentAction {
         task_id: TaskId::new("run-agents-task".to_string()),
         requires_result: true,
         action: AIAgentActionType::RunAgents(Box::new(RunAgentsRequest {
+            github_turn: None,
             metadata: Default::default(),
             summary: "Run child agent".to_string(),
             base_prompt: "Help".to_string(),

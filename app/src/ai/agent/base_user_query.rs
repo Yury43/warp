@@ -113,17 +113,22 @@ impl BaseUserQuery {
     }
 
     /// Lifts a persisted or streamed `Message.UserQuery`'s attribution (origin, author, source
-    /// message, and nothing else) so a restored or live input keeps who was behind it when it
+    /// message, and input ID) so a restored or live input keeps who was behind it when it
     /// is sent again. `None` when the message carries no attribution: historical queries stay
     /// unattributed rather than being re-stamped as the current user's.
     pub(crate) fn from_message(query: &api::message::UserQuery) -> Option<Self> {
-        if query.origin.is_none() && query.author.is_none() && query.source_message.is_none() {
+        if query.origin.is_none()
+            && query.author.is_none()
+            && query.source_message.is_none()
+            && query.input_uid.is_empty()
+        {
             return None;
         }
         Some(Self::from_proto(api::request::input::UserQuery {
             origin: query.origin.clone(),
             author: query.author.clone(),
             source_message: query.source_message.clone(),
+            input_uid: query.input_uid.clone(),
             ..Default::default()
         }))
     }

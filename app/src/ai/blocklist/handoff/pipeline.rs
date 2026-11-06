@@ -994,6 +994,7 @@ fn build_spawn_request(
 
     SpawnAgentRequest {
         metadata: Default::default(),
+        github_turn: None,
         prompt,
         mode,
         config: Some(config),

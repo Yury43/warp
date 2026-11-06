@@ -128,6 +128,7 @@ fn convert_run_agents(
         plan_id,
     } = run_agents;
     AIAgentActionType::RunAgents(Box::new(RunAgentsRequest {
+        github_turn: None,
         metadata,
         summary,
         base_prompt,
@@ -643,7 +644,16 @@ impl ConvertAPIToolCallToAIAgentAction for api::message::ToolCall {
             return Err(ToolToAIAgentActionError::MissingTool);
         };
 
-        let create_standard_action = |action: AIAgentActionType| {
+        let create_standard_action = |mut action: AIAgentActionType| {
+            match &mut action {
+                AIAgentActionType::CallMCPTool { github_turn, .. } => {
+                    *github_turn = self.github_turn.clone().map(Into::into);
+                }
+                AIAgentActionType::RunAgents(request) => {
+                    request.github_turn = self.github_turn.clone().map(Into::into);
+                }
+                _ => {}
+            }
             Ok(MaybeAIAgentAction::Action(AIAgentAction {
                 id: self.tool_call_id.clone().into(),
                 task_id: params.task_id.clone(),

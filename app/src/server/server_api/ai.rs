@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::time::Duration;
 
+use ai::agent::action::GitHubTurnReference;
 use ai::api_keys::{ChatGPTConnection, ChatGPTConnectionStatus};
 use ai::index::full_source_code_embedding::store_client::{IntermediateNode, StoreClient};
 use ai::index::full_source_code_embedding::{
@@ -136,6 +137,11 @@ use warp_graphql::queries::task_git_credentials::{
     TaskGitCredentialsLegacyInput, TaskGitCredentialsLegacyResult,
     TaskGitCredentialsLegacyVariables, TaskGitCredentialsResult, TaskGitCredentialsVariables,
 };
+use warp_graphql::queries::task_restricted_git_credentials::{
+    GitHubCredentialMode, RestrictedTaskGitCredentials, RestrictedTaskGitCredentialsInput,
+    RestrictedTaskGitCredentialsOutput, RestrictedTaskGitCredentialsResult,
+    RestrictedTaskGitCredentialsVariables,
+};
 #[cfg(not(target_family = "wasm"))]
 use warp_graphql::queries::task_secrets::{ManagedSecretValue, TaskSecretsInput};
 use warp_multi_agent_api::ConversationData;
@@ -145,6 +151,7 @@ use super::ServerApi;
 #[cfg(not(target_family = "wasm"))]
 use super::download::write_response_body_to_path;
 use super::harness_support::{UploadField, UploadFieldValue, UploadTarget};
+use super::managed_mcp::github_turn_input;
 #[cfg(not(feature = "agent_mode_evals"))]
 use crate::ai::BonusGrant;
 pub use crate::ai::agent::UserQueryMode;
@@ -291,6 +298,8 @@ impl TaskStatusUpdate {
 /// JSON payload sent to the public `POST /agent/run` API.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct SpawnAgentRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub github_turn: Option<GitHubTurnReference>,
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub metadata: HashMap<String, String>,
     /// None for skill-only or conversation-only invocations; omitted on the wire.
@@ -1364,11 +1373,13 @@ pub trait AIClient: 'static + Send + Sync {
         request_ids: Vec<String>,
     ) -> anyhow::Result<i32, anyhow::Error>;
 
+    #[allow(clippy::too_many_arguments)]
     async fn create_agent_task(
         &self,
         prompt: String,
         environment_uid: Option<String>,
         parent_run_id: Option<String>,
+        github_turn: Option<GitHubTurnReference>,
         config: Option<AgentConfigSnapshot>,
         metadata: HashMap<String, String>,
         team_scope: RequestTeamScope,
@@ -1615,6 +1626,13 @@ pub trait AIClient: 'static + Send + Sync {
         accepts_partial_refresh: bool,
         use_factory_repositories: bool,
     ) -> Result<TaskGitCredentialsResponse, TaskGitCredentialsError>;
+
+    async fn get_restricted_task_git_credentials(
+        &self,
+        task_id: String,
+        workload_token: String,
+        use_factory_repositories: bool,
+    ) -> Result<RestrictedTaskGitCredentialsOutput, TaskGitCredentialsError>;
 
     /// Authorizes a REMOTE-2661 debug agent prompt against a retained environment-setup-failure
     /// session, called by the sharer with its own workload token. Anything short of `Ok(true)`
@@ -2542,6 +2560,7 @@ impl AIClient for ServerApi {
         prompt: String,
         environment_uid: Option<String>,
         parent_run_id: Option<String>,
+        github_turn: Option<GitHubTurnReference>,
         config: Option<AgentConfigSnapshot>,
         metadata: HashMap<String, String>,
         team_scope: RequestTeamScope,
@@ -2567,6 +2586,7 @@ impl AIClient for ServerApi {
 
         let variables = CreateAgentTaskVariables {
             input: CreateAgentTaskInput {
+                github_turn: github_turn.map(github_turn_input).transpose()?,
                 prompt,
                 environment_uid: environment_uid.map(|uid| uid.into()),
                 parent_run_id: parent_run_id.map(|run_id| run_id.into()),
@@ -3163,6 +3183,46 @@ impl AIClient for ServerApi {
                     .await
             }
             Err(error) => Err(error),
+        }
+    }
+
+    async fn get_restricted_task_git_credentials(
+        &self,
+        task_id: String,
+        workload_token: String,
+        use_factory_repositories: bool,
+    ) -> Result<RestrictedTaskGitCredentialsOutput, TaskGitCredentialsError> {
+        let operation =
+            RestrictedTaskGitCredentials::build(RestrictedTaskGitCredentialsVariables {
+                input: RestrictedTaskGitCredentialsInput {
+                    task_id: task_id.into(),
+                    workload_token,
+                    accepts_partial_refresh: Some(true),
+                    use_factory_repositories: Some(use_factory_repositories),
+                    github_credential_contract_version: Some(1),
+                },
+                request_context: get_request_context(),
+            });
+        let response = self
+            .send_graphql_request(operation, None)
+            .await
+            .map_err(TaskGitCredentialsError::Request)?;
+        match response.task_git_credentials {
+            RestrictedTaskGitCredentialsResult::TaskGitCredentialsOutput(output)
+                if output.github_credential_mode
+                    == GitHubCredentialMode::RestrictedInstallation =>
+            {
+                Ok(output)
+            }
+            RestrictedTaskGitCredentialsResult::UserFacingError(error) => {
+                Err(TaskGitCredentialsError::from_user_facing(error))
+            }
+            RestrictedTaskGitCredentialsResult::TaskGitCredentialsOutput(_)
+            | RestrictedTaskGitCredentialsResult::Unknown => {
+                Err(TaskGitCredentialsError::Request(anyhow!(
+                    "Restricted GitHub credential contract is required; no legacy fallback is permitted"
+                )))
+            }
         }
     }
 

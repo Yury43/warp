@@ -1,11 +1,47 @@
 use std::collections::HashMap;
 
+use ai::agent::action::GitHubTurnReference;
 use warpui::{App, EntityId};
 
-use super::{PersistedAIInputType, maybe_build_ai_query_upsert_event};
+use super::{PersistedAIAgentActionType, PersistedAIInputType, maybe_build_ai_query_upsert_event};
+use crate::ai::agent::AIAgentActionType;
 use crate::ai::agent::conversation::{AIConversation, AIConversationId};
 use crate::ai::blocklist::{BlocklistAIHistoryEvent, BlocklistAIHistoryModel};
 use crate::persistence::ModelEvent;
+
+#[test]
+fn github_tool_binding_survives_action_persistence() {
+    let action = AIAgentActionType::CallMCPTool {
+        server_id: None,
+        name: "create_issue".into(),
+        input: serde_json::json!({"title": "test"}),
+        is_github: true,
+        github_turn: Some(GitHubTurnReference {
+            run_id: "captured-run".into(),
+            execution_id: 2,
+            input_uid: "captured-input".into(),
+        }),
+    };
+    let json = serde_json::to_value(PersistedAIAgentActionType::from(&action)).unwrap();
+    let persisted = serde_json::from_value::<PersistedAIAgentActionType>(json).unwrap();
+    assert_eq!(AIAgentActionType::try_from(persisted).unwrap(), action);
+}
+
+#[test]
+fn legacy_mcp_action_has_no_turn_binding() {
+    let persisted = serde_json::from_value::<PersistedAIAgentActionType>(serde_json::json!({
+        "CallMCPTool": {"server_id": null, "name": "test", "input": {}}
+    }))
+    .unwrap();
+    assert!(matches!(
+        AIAgentActionType::try_from(persisted).unwrap(),
+        AIAgentActionType::CallMCPTool {
+            is_github: false,
+            github_turn: None,
+            ..
+        }
+    ));
+}
 
 fn user_query_message(task_id: &str, query: &str) -> warp_multi_agent_api::Message {
     warp_multi_agent_api::Message {

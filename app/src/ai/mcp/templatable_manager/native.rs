@@ -1930,6 +1930,19 @@ impl TemplatableMCPServerManager {
         self.spawn_server_impl(installation, SpawnMode::Reconnect, ctx);
     }
 
+    pub(crate) fn is_github_tool(&self, installation_id: Option<Uuid>, tool_name: &str) -> bool {
+        match installation_id {
+            Some(id) => self
+                .reconnectable_installation(id)
+                .and_then(|installation| installation.warp_id())
+                .is_some_and(|id| id == "github"),
+            None => self
+                .active_servers
+                .values()
+                .any(|server| server.warp_id() == Some("github") && server.has_tool(tool_name)),
+        }
+    }
+
     /// Returns a reconnecting peer for a server that has the given tool.
     ///
     /// The returned peer will automatically reconnect if the underlying transport is closed.

@@ -1532,7 +1532,6 @@ impl BlocklistAIController {
         ai_input: AIAgentInput,
         ctx: &mut ModelContext<Self>,
     ) {
-        let participant_id = self.get_sharer_participant_id();
         let target_conversation =
             if matches!(ai_input, AIAgentInput::StartFromAmbientRunPrompt { .. }) {
                 self.native_prompt_conversation_id
@@ -1540,6 +1539,35 @@ impl BlocklistAIController {
             } else {
                 self.context_model.as_ref(ctx).selected_conversation_id(ctx)
             };
+        self.send_custom_ai_input_query_to_conversation(ai_input, target_conversation, ctx);
+    }
+
+    /// Starts a child from its server-stored seed, preserving the seed's input identity.
+    pub fn send_stored_run_prompt_in_conversation(
+        &mut self,
+        task_id: AmbientAgentTaskId,
+        conversation_id: AIConversationId,
+        ctx: &mut ModelContext<Self>,
+    ) {
+        self.send_custom_ai_input_query_to_conversation(
+            AIAgentInput::StartFromAmbientRunPrompt {
+                ambient_run_id: task_id.to_string(),
+                context: Arc::default(),
+                runtime_skill: None,
+                attachments_dir: None,
+            },
+            Some(conversation_id),
+            ctx,
+        );
+    }
+
+    fn send_custom_ai_input_query_to_conversation(
+        &mut self,
+        ai_input: AIAgentInput,
+        target_conversation: Option<AIConversationId>,
+        ctx: &mut ModelContext<Self>,
+    ) {
+        let participant_id = self.get_sharer_participant_id();
         let which_task = match target_conversation {
             Some(id) => {
                 let Some(conversation) = BlocklistAIHistoryModel::as_ref(ctx).conversation(&id)

@@ -14,10 +14,76 @@ use rmcp::model::{
 use serde_json::{Value, json};
 
 use super::{
-    challenge_parameter_names, determine_transport, has_caller_supplied_credential,
-    is_oauth_challenge, query_resources_for, query_tools_for, should_query_resources,
-    should_query_tools, spawn_server,
+    call_http_tool_once, challenge_parameter_names, determine_transport,
+    has_caller_supplied_credential, is_oauth_challenge, query_resources_for, query_tools_for,
+    should_query_resources, should_query_tools, spawn_server,
 };
+
+#[tokio::test]
+async fn one_shot_calls_isolate_credentials_and_never_retry_failed_writes() {
+    let calls = Arc::new(Mutex::new(Vec::new()));
+    let captured = calls.clone();
+    let app = Router::new().route(
+        "/mcp",
+        post(move |headers: HeaderMap, Json(request): Json<Value>| {
+            let captured = captured.clone();
+            async move {
+                match request["method"].as_str().unwrap() {
+                    "server/discover" => {
+                        let result = DiscoverResult::new(
+                            vec![serde_json::from_value(json!("2026-07-28")).unwrap()],
+                            caps(true, false),
+                        );
+                        Json(json!({"jsonrpc": "2.0", "id": request["id"], "result": result}))
+                            .into_response()
+                    }
+                    "tools/call" => {
+                        let credential = headers
+                            .get("authorization")
+                            .unwrap()
+                            .to_str()
+                            .unwrap()
+                            .to_owned();
+                        let actor = request["params"]["arguments"]["actor"]
+                            .as_str()
+                            .unwrap()
+                            .to_owned();
+                        captured.lock().unwrap().push((credential, actor));
+                        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+                    }
+                    method => panic!("unexpected method: {method}"),
+                }
+            }
+        }),
+    );
+    let (url, server) = serve_http_router(app).await;
+    let call = |actor: &'static str| {
+        call_http_tool_once(
+            url.clone(),
+            HashMap::from([("Authorization".into(), format!("Bearer {actor}"))]),
+            CallToolRequestParams::new("write")
+                .with_arguments(json!({"actor": actor}).as_object().unwrap().clone()),
+            uuid::Uuid::new_v4(),
+        )
+    };
+    let (alice, bob) = tokio::time::timeout(Duration::from_secs(10), async {
+        tokio::join!(call("alice"), call("bob"))
+    })
+    .await
+    .expect("calls must terminate");
+    server.abort();
+    assert!(alice.is_err());
+    assert!(bob.is_err());
+    let mut calls = calls.lock().unwrap().clone();
+    calls.sort();
+    assert_eq!(
+        calls,
+        vec![
+            ("Bearer alice".into(), "alice".into()),
+            ("Bearer bob".into(), "bob".into()),
+        ]
+    );
+}
 
 /// Build a `ServerCapabilities` with selected capability flags toggled on.
 /// Each `Some(default)` mirrors how rmcp deserializes a capability the

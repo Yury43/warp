@@ -1,3 +1,4 @@
+use super::create_managed_mcp_client_config::GitHubTurnReferenceInput;
 use crate::error::UserFacingError;
 use crate::request_context::RequestContext;
 use crate::response_context::ResponseContext;
@@ -37,6 +38,8 @@ pub struct CreateAgentTaskOutput {
 #[derive(cynic::InputObject, Debug)]
 #[cynic(graphql_type = "CreateAgentTaskInput")]
 pub struct CreateAgentTaskInput {
+    #[cynic(skip_serializing_if = "Option::is_none")]
+    pub github_turn: Option<GitHubTurnReferenceInput>,
     pub prompt: String,
     #[cynic(skip_serializing_if = "Option::is_none")]
     pub environment_uid: Option<cynic::Id>,

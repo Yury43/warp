@@ -1151,6 +1151,7 @@ impl AmbientAgentViewModel {
 
         let (prompt, mode) = extract_user_query_mode(prompt);
         let request = SpawnAgentRequest {
+            github_turn: None,
             metadata: Default::default(),
             prompt: Some(prompt),
             mode,

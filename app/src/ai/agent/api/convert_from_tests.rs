@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ai::agent::action::AskUserQuestionType;
+use ai::agent::action::{AskUserQuestionType, GitHubTurnReference};
 use ai::skills::SkillPathOrigin;
 use warp_multi_agent_api as api;
 
@@ -8,6 +8,7 @@ use super::{
     ConversionParams, ConvertAPIMessageToClientOutputMessage, MaybeAIAgentOutputMessage,
     convert_api_question,
 };
+use crate::ai::agent::api::convert_to::serde_json_to_prost;
 use crate::ai::agent::task::TaskId;
 use crate::ai::agent::{AIAgentActionType, AIAgentOutputMessageType};
 
@@ -33,6 +34,66 @@ fn upload_artifact_tool_call_message(path: &str, description: &str) -> api::Mess
         request_id: "request-id".to_string(),
         timestamp: None,
     }
+}
+
+#[test]
+fn github_tool_uses_outer_turn_metadata_not_model_arguments() {
+    let reference = api::GitHubTurnReference {
+        run_id: "captured-run".into(),
+        execution_id: 2,
+        input_uid: "captured-input".into(),
+    };
+    let model_input = serde_json::json!({"github_turn": {"input_uid": "forged-input"}});
+    let Some(prost_types::value::Kind::StructValue(args)) =
+        serde_json_to_prost(model_input.clone()).unwrap().kind
+    else {
+        panic!("expected object arguments");
+    };
+    let message = api::Message {
+        message: Some(api::message::Message::ToolCall(api::message::ToolCall {
+            github_turn: Some(reference.clone()),
+            tool: Some(api::message::tool_call::Tool::CallMcpTool(
+                api::message::tool_call::CallMcpTool {
+                    name: "create_issue".into(),
+                    args: Some(args),
+                    server_identity: Some(api::McpServerIdentity {
+                        integration: api::McpIntegration::Github.into(),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                },
+            )),
+            ..Default::default()
+        })),
+        ..Default::default()
+    };
+    let task_id = TaskId::new("task-id".into());
+    let output = message
+        .to_client_output_message(ConversionParams {
+            task_id: &task_id,
+            current_todo_list: None,
+            active_code_review: None,
+            skill_path_origin: &SkillPathOrigin::Local,
+        })
+        .unwrap();
+    let MaybeAIAgentOutputMessage::Message(output) = output else {
+        panic!("expected message");
+    };
+    let AIAgentOutputMessageType::Action(action) = output.message else {
+        panic!("expected action");
+    };
+    let AIAgentActionType::CallMCPTool {
+        is_github,
+        github_turn,
+        input,
+        ..
+    } = action.action
+    else {
+        panic!("expected MCP action");
+    };
+    assert!(is_github);
+    assert_eq!(github_turn, Some(reference.into()));
+    assert_eq!(input, model_input);
 }
 
 fn file_artifact_created_message(filepath: &str, description: &str) -> api::Message {
@@ -155,7 +216,11 @@ fn converts_run_agents_metadata_maps() {
     let child_metadata = HashMap::from([("stage".to_string(), String::new())]);
     let message = api::Message {
         message: Some(api::message::Message::ToolCall(api::message::ToolCall {
-            github_turn: None,
+            github_turn: Some(api::GitHubTurnReference {
+                run_id: "captured-run".into(),
+                execution_id: 2,
+                input_uid: "captured-input".into(),
+            }),
             tool_call_id: "run-agents".to_string(),
             tool: Some(api::message::tool_call::Tool::RunAgents(api::RunAgents {
                 metadata: metadata.clone(),
@@ -188,6 +253,14 @@ fn converts_run_agents_metadata_maps() {
     };
     assert_eq!(request.metadata, metadata);
     assert_eq!(request.agent_run_configs[0].metadata, child_metadata);
+    assert_eq!(
+        request.github_turn,
+        Some(GitHubTurnReference {
+            run_id: "captured-run".into(),
+            execution_id: 2,
+            input_uid: "captured-input".into(),
+        })
+    );
 }
 
 #[test]

@@ -3,6 +3,33 @@
 use serde_json::json;
 
 use super::*;
+#[cfg(not(target_family = "wasm"))]
+use crate::server::server_api::managed_mcp::MockManagedMcpClient;
+
+#[test]
+#[cfg(not(target_family = "wasm"))]
+fn github_config_failure_uses_captured_ref_once_without_unbound_fallback() {
+    let reference = GitHubTurnReference {
+        run_id: "captured-run".into(),
+        execution_id: 2,
+        input_uid: "captured-input".into(),
+    };
+    let mut client = MockManagedMcpClient::new();
+    let expected = reference.clone();
+    client
+        .expect_create_github_mcp_client_config()
+        .times(1)
+        .withf(move |actual| actual == &expected)
+        .returning(|_| Err(anyhow::anyhow!("binding expired")));
+    client.expect_create_managed_mcp_client_config().times(0);
+    let result = futures::executor::block_on(call_github_tool(
+        &client,
+        reference,
+        "create_issue".into(),
+        obj(json!({"title": "test"})),
+    ));
+    assert!(result.unwrap_err().to_string().contains("binding expired"));
+}
 
 fn obj(value: serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
     match value {

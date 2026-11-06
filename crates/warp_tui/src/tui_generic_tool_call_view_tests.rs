@@ -25,6 +25,8 @@ fn mcp_permission_details_are_structured_and_human_readable() {
             id: AIAgentActionId::from("mcp-action".to_owned()),
             task_id: TaskId::new("task".to_owned()),
             action: AIAgentActionType::CallMCPTool {
+                is_github: false,
+                github_turn: None,
                 server_id: None,
                 name: "create_issue".to_owned(),
                 input: json!({

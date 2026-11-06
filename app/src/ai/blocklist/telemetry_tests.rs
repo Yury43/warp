@@ -10,6 +10,7 @@ use super::*;
 fn request() -> RunAgentsRequest {
     RunAgentsRequest {
         metadata: Default::default(),
+        github_turn: None,
         summary: "summary".to_string(),
         base_prompt: "base".to_string(),
         skills: Vec::new(),

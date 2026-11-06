@@ -31,6 +31,7 @@ use crate::test_fixtures::{TestHostView, add_test_action_model};
 fn request(harness: &str, execution_mode: RunAgentsExecutionMode) -> RunAgentsRequest {
     RunAgentsRequest {
         metadata: Default::default(),
+        github_turn: None,
         summary: "Parallelize the task.".to_string(),
         base_prompt: "base".to_string(),
         skills: Vec::new(),

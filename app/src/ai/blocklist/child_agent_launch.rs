@@ -4,6 +4,8 @@ use std::collections::HashMap;
 #[cfg(not(target_family = "wasm"))]
 use std::future::Future;
 
+#[cfg(not(target_family = "wasm"))]
+use ai::agent::action::GitHubTurnReference;
 use warpui::{AppContext, EntityId, SingletonEntity as _};
 #[cfg(not(target_family = "wasm"))]
 use {
@@ -35,6 +37,7 @@ pub fn prepare_local_oz_child_launch(
     name: &str,
     prompt: &str,
     parent_run_id: Option<&str>,
+    github_turn: Option<GitHubTurnReference>,
     metadata: &HashMap<String, String>,
     team_scope: RequestTeamScope,
     ctx: &AppContext,
@@ -51,6 +54,7 @@ pub fn prepare_local_oz_child_launch(
                 prompt,
                 None,
                 parent_run_id,
+                github_turn,
                 Some(AgentConfigSnapshot {
                     name: agent_name,
                     ..Default::default()

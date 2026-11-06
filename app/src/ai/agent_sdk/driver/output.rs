@@ -406,6 +406,7 @@ pub mod text {
                         server_id: _,
                         name,
                         input,
+                        ..
                     } => {
                         writeln!(w, "MCP tool call {name}({input:#})")?;
                     }
@@ -1156,6 +1157,7 @@ pub mod json {
                         server_id: _,
                         name,
                         input,
+                        ..
                     } => Some(JsonMessage::ToolCall(JsonToolCall::CallMcpTool {
                         name,
                         input,

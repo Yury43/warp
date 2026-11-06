@@ -251,6 +251,7 @@ impl RunAgentsExecutor {
             .and_then(|c| c.run_id());
 
         let RunAgentsRequest {
+            github_turn,
             metadata,
             execution_mode: run_execution_mode,
             harness_type,
@@ -298,6 +299,7 @@ impl RunAgentsExecutor {
                     None, /* lifecycle_subscription */
                     parent_conversation_id,
                     parent_run_id.clone(),
+                    github_turn.clone(),
                     team_scope,
                     exec_ctx,
                 )
@@ -716,6 +718,12 @@ fn resolve_request_from_config(request: &mut RunAgentsRequest, config: &Orchestr
 /// Defence-in-depth validation; mirrors the card view's
 /// `accept_disabled_reason` check.
 fn validate_request(request: &RunAgentsRequest) -> Result<(), String> {
+    if request.github_turn.is_some()
+        && !request.harness_type.trim().is_empty()
+        && !request.harness_type.trim().eq_ignore_ascii_case("oz")
+    {
+        return Err("GitHub turn bindings require the Oz harness.".to_string());
+    }
     if request.agent_run_configs.is_empty() {
         return Err("orchestrate: empty agent_run_configs".to_string());
     }

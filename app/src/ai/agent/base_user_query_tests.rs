@@ -315,3 +315,21 @@ fn from_message_keeps_an_unresolved_sender() {
         api::IdentityResolution::Unresolved as i32
     );
 }
+
+#[test]
+fn from_message_preserves_input_uid_without_attribution() {
+    let message = api::message::UserQuery {
+        input_uid: "stored-input".into(),
+        ..Default::default()
+    };
+    let lifted = BaseUserQuery::from_message(&message).unwrap().to_proto();
+    assert_eq!(lifted.input_uid, "stored-input");
+    assert!(lifted.origin.is_none());
+    assert!(lifted.author.is_none());
+    assert_eq!(
+        BaseUserQuery::decode_b64(&encode(&lifted))
+            .unwrap()
+            .to_proto(),
+        lifted
+    );
+}

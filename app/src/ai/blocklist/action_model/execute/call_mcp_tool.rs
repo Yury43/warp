@@ -1,3 +1,8 @@
+#[cfg(not(target_family = "wasm"))]
+use std::collections::HashMap;
+
+#[cfg(not(target_family = "wasm"))]
+use ai::agent::action::GitHubTurnReference;
 use futures::FutureExt;
 use futures::future::BoxFuture;
 #[cfg(not(target_family = "wasm"))]
@@ -5,12 +10,18 @@ use itertools::Itertools;
 #[cfg(not(target_family = "wasm"))]
 use uuid::Uuid;
 #[cfg(not(target_family = "wasm"))]
+use warp_graphql::mutations::create_managed_mcp_client_config::ManagedMcpTransportKind;
+#[cfg(not(target_family = "wasm"))]
 use warpui::SingletonEntity;
 use warpui::{Entity, EntityId, ModelContext, ModelHandle};
 
 #[cfg(not(target_family = "wasm"))]
 use super::get_server_output_id;
 use super::{ActionExecution, AnyActionExecution, ExecuteActionInput, PreprocessActionInput};
+#[cfg(not(target_family = "wasm"))]
+use crate::server::server_api::ServerApiProvider;
+#[cfg(not(target_family = "wasm"))]
+use crate::server::server_api::managed_mcp::ManagedMcpClient;
 use crate::terminal::model::session::active_session::ActiveSession;
 #[cfg(not(target_family = "wasm"))]
 use crate::{
@@ -27,6 +38,48 @@ pub struct CallMCPToolExecutor {
     _active_session: ModelHandle<ActiveSession>,
     #[allow(dead_code)]
     terminal_view_id: EntityId,
+}
+
+#[cfg(not(target_family = "wasm"))]
+async fn call_github_tool(
+    client: &dyn ManagedMcpClient,
+    github_turn: GitHubTurnReference,
+    name: String,
+    arguments: serde_json::Map<String, serde_json::Value>,
+) -> Result<rmcp::model::CallToolResult, rmcp::ServiceError> {
+    let result = async {
+        let config = client.create_github_mcp_client_config(github_turn).await?;
+        anyhow::ensure!(
+            config.transport_kind == ManagedMcpTransportKind::Url,
+            "GitHub tools require HTTP transport"
+        );
+        let url = config
+            .proxy_url
+            .ok_or_else(|| anyhow::anyhow!("Missing GitHub proxy URL"))?;
+        let header = config
+            .authorization_header_name
+            .filter(|name| name.eq_ignore_ascii_case("authorization"))
+            .ok_or_else(|| anyhow::anyhow!("Missing GitHub authorization header"))?;
+        let value = config
+            .authorization_header_value
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| anyhow::anyhow!("Missing GitHub authorization value"))?;
+        mcp::runtime::call_http_tool_once(
+            url,
+            HashMap::from([(header, value)]),
+            rmcp::model::CallToolRequestParams::new(name).with_arguments(arguments),
+            Uuid::new_v4(),
+        )
+        .await
+        .map_err(anyhow::Error::from)
+    }
+    .await;
+    result.map_err(|error| {
+        rmcp::ServiceError::McpError(rmcp::model::ErrorData::internal_error(
+            error.to_string(),
+            None,
+        ))
+    })
 }
 
 impl CallMCPToolExecutor {
@@ -97,6 +150,8 @@ impl CallMCPToolExecutor {
                         server_id,
                         name,
                         input,
+                        is_github,
+                        github_turn,
                     },
                 ..
             } = input.action
@@ -128,6 +183,25 @@ impl CallMCPToolExecutor {
                 templatable_mcp_manager.tool_input_schema(*server_id, name.as_str())
             {
                 coerce_integer_args(&mut arguments, &schema);
+            }
+
+            if *is_github || templatable_mcp_manager.is_github_tool(*server_id, name.as_str()) {
+                let Some(github_turn) = github_turn.clone() else {
+                    return ActionExecution::Sync(AIAgentActionResultType::CallMCPTool(
+                        CallMCPToolResult::Error(
+                            "GitHub tools require a captured turn binding.".to_string(),
+                        ),
+                    ));
+                };
+                let client = ServerApiProvider::as_ref(ctx).get_managed_mcp_client();
+                return ActionExecution::new_async(
+                    async move {
+                        call_github_tool(client.as_ref(), github_turn, name_owned, arguments).await
+                    },
+                    move |result, ctx| {
+                        handle_call_tool_result(result, server_output_id, name_clone, ctx)
+                    },
+                );
             }
 
             let templatable_peer = if let Some(installation_id) = server_id {

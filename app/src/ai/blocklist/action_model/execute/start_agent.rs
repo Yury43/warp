@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use ai::agent::action::GitHubTurnReference;
 use warp_errors::report_error;
 use warpui::{Entity, ModelContext, ModelHandle, SingletonEntity};
 
@@ -35,6 +36,7 @@ impl StartAgentRequestId {
 
 #[derive(Clone)]
 pub struct StartAgentRequest {
+    pub github_turn: Option<GitHubTurnReference>,
     pub metadata: HashMap<String, String>,
     pub id: StartAgentRequestId,
     pub name: String,
@@ -257,6 +259,7 @@ impl StartAgentExecutor {
         lifecycle_subscription: Option<Vec<LifecycleEventType>>,
         parent_conversation_id: AIConversationId,
         parent_run_id: Option<String>,
+        github_turn: Option<GitHubTurnReference>,
         request_team_scope: RequestTeamScope,
         ctx: &mut ModelContext<Self>,
     ) -> async_channel::Receiver<StartAgentOutcome> {
@@ -272,6 +275,7 @@ impl StartAgentExecutor {
         );
         ctx.emit(StartAgentExecutorEvent::CreateAgent(Box::new(
             StartAgentRequest {
+                github_turn,
                 id: request_id,
                 name,
                 prompt,

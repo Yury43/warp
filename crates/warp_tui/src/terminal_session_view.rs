@@ -2414,11 +2414,16 @@ impl TuiTerminalSessionView {
         task_id: warp::tui_export::AmbientAgentTaskId,
         prompt: String,
         conversation_id: AIConversationId,
+        use_stored_prompt: bool,
         ctx: &mut ViewContext<Self>,
     ) {
         self.ai_controller.update(ctx, |controller, ctx| {
             controller.set_ambient_agent_task_id(Some(task_id), ctx);
-            controller.send_agent_query_in_conversation(prompt, conversation_id, ctx);
+            if use_stored_prompt {
+                controller.send_stored_run_prompt_in_conversation(task_id, conversation_id, ctx);
+            } else {
+                controller.send_agent_query_in_conversation(prompt, conversation_id, ctx);
+            }
         });
     }
 

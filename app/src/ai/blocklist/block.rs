@@ -2140,6 +2140,7 @@ impl AIBlock {
                             server_id,
                             name,
                             input,
+                            ..
                         },
                     ..
                 } => {

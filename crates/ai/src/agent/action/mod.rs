@@ -113,6 +113,8 @@ pub enum AIAgentActionType {
         server_id: Option<Uuid>,
         name: String,
         input: serde_json::Value,
+        is_github: bool,
+        github_turn: Option<GitHubTurnReference>,
     },
 
     SuggestNewConversation {
@@ -222,6 +224,7 @@ pub enum AIAgentActionType {
 /// fully-resolved instance only.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct RunAgentsRequest {
+    pub github_turn: Option<GitHubTurnReference>,
     pub metadata: HashMap<String, String>,
     pub summary: String,
     pub base_prompt: String,
@@ -233,6 +236,24 @@ pub struct RunAgentsRequest {
     pub plan_id: String,
     /// Resolved client-side at dispatch time; not serialized to the wire.
     pub harness_auth_secret_name: Option<String>,
+}
+
+/// A reference to a server-owned binding, never an actor or a credential.
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct GitHubTurnReference {
+    pub run_id: String,
+    pub execution_id: i64,
+    pub input_uid: String,
+}
+
+impl From<warp_multi_agent_api::GitHubTurnReference> for GitHubTurnReference {
+    fn from(reference: warp_multi_agent_api::GitHubTurnReference) -> Self {
+        Self {
+            run_id: reference.run_id,
+            execution_id: reference.execution_id,
+            input_uid: reference.input_uid,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -546,6 +567,7 @@ impl Display for AIAgentActionType {
                 server_id: _,
                 name,
                 input,
+                ..
             } => {
                 write!(f, "CallMCPTool: {name} with input {input:?}")
             }

@@ -1708,6 +1708,7 @@ fn launch_local_no_harness_child(
         &request.name,
         &request.prompt,
         request.parent_run_id.as_deref(),
+        request.github_turn.clone(),
         &request.metadata,
         request_team_scope,
         ctx,
@@ -1759,11 +1760,19 @@ fn launch_local_no_harness_child(
                         terminal_view
                             .ai_controller()
                             .update(ctx, |controller, ctx| {
-                                controller.send_agent_query_in_conversation(
-                                    prompt.clone(),
-                                    conversation_id,
-                                    ctx,
-                                );
+                                if request.github_turn.is_some() {
+                                    controller.send_stored_run_prompt_in_conversation(
+                                        child_task_id,
+                                        conversation_id,
+                                        ctx,
+                                    );
+                                } else {
+                                    controller.send_agent_query_in_conversation(
+                                        prompt.clone(),
+                                        conversation_id,
+                                        ctx,
+                                    );
+                                }
                             });
 
                         terminal_view.enter_agent_view(

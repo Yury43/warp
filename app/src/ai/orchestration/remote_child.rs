@@ -315,6 +315,7 @@ pub fn prepare_remote_child_launch(
         attachments: Vec::new(),
         interactive: Some(true),
         parent_run_id: Some(parent_run_id),
+        github_turn: request.github_turn.clone(),
         runtime_skills,
         referenced_attachments: Vec::new(),
         conversation_id: None,

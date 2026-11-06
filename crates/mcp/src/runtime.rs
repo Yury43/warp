@@ -26,8 +26,10 @@ use simple_logger::SimpleLogger;
 use tokio::io::AsyncBufReadExt as _;
 use uuid::Uuid;
 use warp_errors::report_error;
+use warpui::r#async::FutureExt as _;
 
 use super::TemplatableMCPServerInfo;
+use crate::tool_call::call_tool_with_deadline;
 
 type ReqwestHttpTransport = rmcp::transport::StreamableHttpClientTransport<reqwest::Client>;
 type ReqwestSseTransport = crate::sse_transport::SseClientTransport<reqwest::Client>;
@@ -77,6 +79,47 @@ pub fn error_to_user_message(error: &rmcp::RmcpError) -> String {
             format!("Error: {error}")
         }
     }
+}
+
+/// Calls one HTTP tool with fixed credentials and no retry after dispatch.
+pub async fn call_http_tool_once(
+    url: String,
+    headers: HashMap<String, String>,
+    params: rmcp::model::CallToolRequestParams,
+    operation_id: Uuid,
+) -> Result<rmcp::model::CallToolResult, rmcp::RmcpError> {
+    let mut service = async {
+        let preflight = negotiate_protocol(&url, &headers, None).await?;
+        if !preflight.status.is_success() {
+            return Err(rmcp::RmcpError::transport_creation::<ReqwestHttpTransport>(
+                format!("MCP connection failed: {}", preflight.status),
+            ));
+        }
+        let transport = ReqwestHttpTransport::with_client(
+            build_client_with_headers(&headers)?,
+            rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig::with_uri(
+                url,
+            ),
+        );
+        Ok(make_client_info()
+            .with_protocol_version(preflight.protocol.version.clone())
+            .into_dyn()
+            .serve_with_lifecycle(transport, preflight.protocol.lifecycle())
+            .await?)
+    }
+    .with_timeout(Duration::from_secs(20))
+    .await
+    .map_err(|_| {
+        rmcp::RmcpError::transport_creation::<ReqwestHttpTransport>(
+            "MCP connection timed out before tool dispatch",
+        )
+    })??;
+    let result = call_tool_with_deadline(operation_id, operation_id, params, async {
+        Ok(service.peer().clone())
+    })
+    .await;
+    let _ = service.close_with_timeout(Duration::from_secs(5)).await;
+    result.map_err(Into::into)
 }
 
 /// Builds a `HeaderMap` from a `HashMap<String, String>` of user-provided headers.

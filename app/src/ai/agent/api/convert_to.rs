@@ -231,7 +231,7 @@ pub(super) fn convert_input(
                                     origin: attribution.origin,
                                     author: attribution.author,
                                     source_message: attribution.source_message,
-                                    input_uid: Default::default(),
+                                    input_uid: attribution.input_uid,
                                 }
                             }),
                         },
@@ -1027,6 +1027,7 @@ pub(crate) fn mcp_server_identity(warp_id: &str) -> Option<api::McpServerIdentit
         "slack" => api::McpIntegration::Slack,
         "jira" => api::McpIntegration::Jira,
         "linear_agent_session" => api::McpIntegration::LinearAgentSession,
+        "github" => api::McpIntegration::Github,
         _ => return None,
     };
     Some(api::McpServerIdentity {
@@ -1056,7 +1057,7 @@ impl From<MCPContext> for api::request::McpContext {
                     .filter_map(convert_mcp_tool)
                     .collect(),
                 servers: vec![], // Empty for old behavior
-                supports_github_turn_binding: false,
+                supports_github_turn_binding: !cfg!(target_family = "wasm"),
             }
         } else {
             // New behavior: group by server
@@ -1090,7 +1091,7 @@ impl From<MCPContext> for api::request::McpContext {
                 #[allow(deprecated)]
                 tools: vec![], // Empty - everything is grouped by server
                 servers,
-                supports_github_turn_binding: false,
+                supports_github_turn_binding: !cfg!(target_family = "wasm"),
             }
         }
     }

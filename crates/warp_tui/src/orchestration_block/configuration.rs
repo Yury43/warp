@@ -30,6 +30,7 @@ pub(super) fn build_request(
     state: &OrchestrationConfigState,
 ) -> RunAgentsRequest {
     RunAgentsRequest {
+        github_turn: fields.github_turn.clone(),
         metadata: fields.metadata.clone(),
         summary: fields.summary.clone(),
         base_prompt: fields.base_prompt.clone(),

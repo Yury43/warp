@@ -788,6 +788,7 @@ impl TuiOrchestrationModel {
             &request.name,
             &request.prompt,
             request.parent_run_id.as_deref(),
+            request.github_turn.clone(),
             &request.metadata,
             request_team_scope,
             ctx,
@@ -859,7 +860,13 @@ impl TuiOrchestrationModel {
 
         let prompt = request.prompt;
         session_view.update(ctx, |view, ctx| {
-            view.start_orchestrated_child(task_id, prompt, conversation_id, ctx);
+            view.start_orchestrated_child(
+                task_id,
+                prompt,
+                conversation_id,
+                request.github_turn.is_some(),
+                ctx,
+            );
         });
 
         self.child_session_by_conversation

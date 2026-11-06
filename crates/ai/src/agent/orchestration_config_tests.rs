@@ -34,6 +34,7 @@ fn pi_cloud_config_survives_proto_round_trip() {
 fn make_request(model: &str, harness: &str, remote: bool) -> RunAgentsRequest {
     RunAgentsRequest {
         metadata: Default::default(),
+        github_turn: None,
         summary: "test".to_string(),
         base_prompt: "prompt".to_string(),
         skills: vec![],

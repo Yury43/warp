@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
-use ai::agent::action::{RunAgentsAgentRunConfig, RunAgentsExecutionMode, RunAgentsRequest};
+use ai::agent::action::{
+    GitHubTurnReference, RunAgentsAgentRunConfig, RunAgentsExecutionMode, RunAgentsRequest,
+};
 use ai::agent::action_result::{
     RunAgentsAgentOutcome, RunAgentsAgentOutcomeKind, RunAgentsLaunchedExecutionMode,
     RunAgentsResult,
@@ -27,11 +29,17 @@ fn confirmation_preserves_metadata_defaults_and_child_overrides() {
         },
     );
     request.metadata = [("ticket_id".to_string(), "ABC-1".to_string())].into();
+    request.github_turn = Some(GitHubTurnReference {
+        run_id: "captured-run".into(),
+        execution_id: 2,
+        input_uid: "captured-input".into(),
+    });
     request.agent_run_configs[0].metadata = [("ticket_id".to_string(), String::new())].into();
 
     let confirmed = RunAgentsEditState::from_request(&request).to_request();
 
     assert_eq!(confirmed.metadata, request.metadata);
+    assert_eq!(confirmed.github_turn, request.github_turn);
     assert_eq!(
         confirmed.agent_run_configs[0].metadata,
         request.agent_run_configs[0].metadata
@@ -45,6 +53,7 @@ fn make_request_with_skills(
 ) -> RunAgentsRequest {
     RunAgentsRequest {
         metadata: Default::default(),
+        github_turn: None,
         summary: "summary".to_string(),
         base_prompt: "base".to_string(),
         skills,
@@ -76,6 +85,7 @@ fn make_config_state_with_orch_fields(
             &request.execution_mode,
         ),
         card: RunAgentsCardFields {
+            github_turn: None,
             metadata: request.metadata,
             agent_run_configs: request.agent_run_configs,
             base_prompt: request.base_prompt,
